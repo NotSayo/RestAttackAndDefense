@@ -2,6 +2,7 @@
 using Classes.Enums;
 using Classes.Models;
 using Classes.Statistics;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Options;
 
 namespace ApiServer.Controllers;
@@ -10,10 +11,10 @@ public class GameController : IDisposable
 {
     private ILogger<GameController> _logger;
     public event EventHandler<int>? StatisticsChanged;
-
     public ServerStatistics Statistics { get; set; }
     public readonly IOptions<GameSettings> Options;
 
+    public List<DefenceLog> DefenceLogs { get; private set; }
     public List<ServerStatistics> OtherClients;
     private readonly Random _rng;
     private readonly CancellationToken _stoppingToken;
@@ -30,9 +31,11 @@ public class GameController : IDisposable
     {
         _logger = logger;
         _stoppingToken = lifetime.ApplicationStopping;
-        _rng = new Random();
         Options = options;
+
+        _rng = new Random();
         OtherClients = new List<ServerStatistics>(); // TODO implement auto searching for other clients
+        DefenceLogs = new List<DefenceLog>();
 
         Statistics = new ServerStatistics
         {
@@ -47,15 +50,18 @@ public class GameController : IDisposable
 
 
     // IActionResult => ActionResult
-    public async Task<IResult> ReceiveAttack(string Name, AttackModel attackModel)
+    public async Task<IResult> ReceiveAttack(HttpContext context,string Name, AttackModel attackModel)
     {
+        if(string.IsNullOrEmpty(Name) || string.IsNullOrEmpty(Name))
+            return Results.BadRequest("Name and attack value must be provided");
         if (!IsServiceAvailable())
             return Results.StatusCode(statusCode:503);
 
-        double newAttackValue = Statistics.Attack * ((_rng.NextDouble() / 5 - 0.1) + 1);
+        double newDefenceValue = Statistics.Defense * ((_rng.NextDouble() / 5 - 0.1) + 1);
 
-        if (attackModel.Attack > newAttackValue)
+        if (attackModel.Attack > newDefenceValue)
         {
+            AddDefenceLog(context, Name, AttackResult.Hacked, attackModel, (float) newDefenceValue);
             UpdateStatistics((stats) =>
             {
                 stats.Points -= Options.Value.PointsLostForUnsuccessfulDefense;
@@ -64,6 +70,7 @@ public class GameController : IDisposable
             return Results.Ok(new AttackResultModel() { AttackResult = AttackResult.Hacked.ToString() });
         }
 
+        AddDefenceLog(context, Name, AttackResult.Defended, attackModel, (float) newDefenceValue);
         UpdateStatistics((stats) =>
         {
             stats.Points += Options.Value.PointsGainedForSuccessfulDefense;
@@ -72,6 +79,18 @@ public class GameController : IDisposable
 
         return Results.Ok(new AttackResultModel() {AttackResult = AttackResult.Defended.ToString()});
     }
+
+    private void AddDefenceLog(HttpContext context, string Name, AttackResult result, AttackModel model, float newDefenceValue)
+        => DefenceLogs.Add(new DefenceLog()
+        {
+            AttackId = DefenceLogs.Count + 1,
+            AttackedByIp = context.Connection.RemoteIpAddress is not null ? context.Connection.RemoteIpAddress.ToString() : "Unknown",
+            AttackedByName = Name,
+            Result = AttackResult.Hacked,
+            AttackValue = model.Attack,
+            DefenceValue = newDefenceValue
+        });
+    
 
     public void Dispose()
     {

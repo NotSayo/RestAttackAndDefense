@@ -1,7 +1,7 @@
 ﻿using ApiServer.Controllers;
 using Classes.Enums;
 
-namespace ApiServer;
+namespace ApiServer.Services;
 
 public class DisableServerService(IHostApplicationLifetime lifetime, GameController controller, ILogger<DisableServerService> _logger) : BackgroundService
 {

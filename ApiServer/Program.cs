@@ -1,6 +1,7 @@
 using ApiServer;
 using ApiServer.Controllers;
 using ApiServer.Endpoints;
+using ApiServer.Services;
 using Classes.Statistics;
 
 var builder = WebApplication.CreateBuilder(args);

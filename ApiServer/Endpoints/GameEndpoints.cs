@@ -9,7 +9,6 @@ public static class Game
     public static void MapGameEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("status", (
-            HttpContext context,
             GameController controller) =>
         {
             return Results.Ok(new
@@ -22,8 +21,9 @@ public static class Game
         });
 
         endpoints.MapPost("hacking-attempt", (
+            HttpContext context,
             GameController controller,
-            [FromHeader(Name = "Attacker")] string Name,
-            [FromBody] AttackModel AttackValue) => controller.ReceiveAttack(Name, AttackValue));
+            [FromHeader(Name = "Attacker")] string name,
+            [FromBody] AttackModel attackValue) => controller.ReceiveAttack(context, name, attackValue));
     }
 }
