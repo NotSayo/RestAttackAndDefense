@@ -4,6 +4,7 @@
 @using Classes.Statistics
 @using Microsoft.AspNetCore.SignalR.Client
 @attribute [StreamRendering]
+@inject NavigationManager NavigationManager
 @implements IAsyncDisposable
 
 @inject ILogger<Home> logger
@@ -22,6 +23,8 @@
         <span>@log.DefenceValue</span>
         <br/>
     }
+
+    <button @onclick="async () => await SendAttack()">SendAttack</button>
 }
 
 
@@ -32,27 +35,25 @@
 
 @code {
     private HubConnection? _connection { get; set; }
-    public List<DefenceLog> DefenceLogs { get; set; } = new List<DefenceLog>()
+    public List<DefenceLog> DefenceLogs { get; set; } = new List<DefenceLog>();
+
+    public async Task SendAttack()
     {
-        new()
+        await _connection!.SendAsync("LogAttack", new AttackLog
         {
             AttackId = 1,
+            AttackedIp = "",
             AttackValue = 1,
             DefenceValue = 1,
             Result = AttackResult.Defended,
-            AttackedByIp = "",
-            AttackedByName = ""
-        }
-    };
 
+        });
+    }
 
     protected override async Task OnInitializedAsync()
     {
         _connection = new HubConnectionBuilder()
-            .WithUrl("http://localhost:1337/clientHub", options =>
-            {
-                options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets;
-            })
+            .WithUrl("http://localhost:1337/clientHub")
             .Build();
         MapSignalrEvents();
         await _connection!.StartAsync();

@@ -20,4 +20,9 @@ public class ClientHub(GameController controller) : Hub
     {
         await Clients.Caller.SendAsync("UpdateDefenceLog", newLog);
     }
+
+    public void LogAttack(AttackLog log)
+    {
+        controller.AddAttackLog(log);
+    }
 }

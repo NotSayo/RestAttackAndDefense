@@ -13,17 +13,19 @@ public class GameController : IDisposable
 {
     private ILogger<GameController> _logger;
     public event EventHandler<int>? StatisticsChanged;
-    public event EventHandler<DefenceLog> DefenceLogAdded;
+    public event EventHandler<DefenceLog>? DefenceLogAdded;
+    public event EventHandler<AttackLog>? AttackLogAdded;
     public ServerStatistics Statistics { get; set; }
     public readonly IOptions<GameSettings> Options;
-    public readonly IHubContext<ClientHub> _clientHub;
+    private readonly IHubContext<ClientHub> _clientHub;
 
     public List<DefenceLog> DefenceLogs { get; private set; }
+    public List<AttackLog> AttackLogs { get; private set; }
     public List<ServerStatistics> OtherClients;
     private readonly Random _rng;
     private readonly CancellationToken _stoppingToken;
 
-    private void UpdateStatistics(Action<ServerStatistics> updateAction)
+    public void UpdateStatistics(Action<ServerStatistics> updateAction)
     {
         var previousPoints = Statistics.Points;
         updateAction(Statistics); // Perform updates via the action
@@ -42,6 +44,7 @@ public class GameController : IDisposable
         _rng = new Random();
         OtherClients = new List<ServerStatistics>(); // TODO implement auto searching for other clients
         DefenceLogs = new List<DefenceLog>();
+        AttackLogs = new List<AttackLog>();
 
         Statistics = new ServerStatistics
         {
@@ -68,38 +71,38 @@ public class GameController : IDisposable
         if (attackModel.Attack > newDefenceValue)
         {
             AddDefenceLog(context, Name, AttackResult.Hacked, attackModel, (float) newDefenceValue);
-            UpdateStatistics((stats) =>
-            {
-                stats.Points -= Options.Value.PointsLostForUnsuccessfulDefense;
-                stats.Defense -= Options.Value.PointsLostForUnsuccessfulDefense;
-            });
             return Results.Ok(new AttackResultModel() { AttackResult = AttackResult.Hacked.ToString() });
         }
 
         AddDefenceLog(context, Name, AttackResult.Defended, attackModel, (float) newDefenceValue);
-        UpdateStatistics((stats) =>
-        {
-            stats.Points += Options.Value.PointsGainedForSuccessfulDefense;
-            stats.Defense += Options.Value.PointsGainedForSuccessfulDefense;
-        });
 
         return Results.Ok(new AttackResultModel() {AttackResult = AttackResult.Defended.ToString()});
     }
 
-    private void AddDefenceLog(HttpContext context, string Name, AttackResult result, AttackModel model,
+    public void AddDefenceLog(HttpContext context, string name, AttackResult result, AttackModel model,
         float newDefenceValue)
     {
         DefenceLogs.Add(new DefenceLog()
         {
             AttackId = DefenceLogs.Count + 1,
             AttackedByIp = context.Connection.RemoteIpAddress is not null ? context.Connection.RemoteIpAddress.ToString() : "Unknown",
-            AttackedByName = Name,
+            AttackedByName = name,
             Result = AttackResult.Hacked,
             AttackValue = model.Attack,
             DefenceValue = newDefenceValue
         });
+
         var t = async () => await _clientHub.Clients.All.SendAsync("UpdateDefenceLog", DefenceLogs.Last(), _stoppingToken);
         _= t.Invoke();
+        DefenceLogAdded?.Invoke(this, DefenceLogs.Last());
+    }
+
+    public void AddAttackLog(AttackLog log)
+    {
+        AttackLogs.Add(log);
+
+        var t = async () => await _clientHub.Clients.All.SendAsync("LogAttackResult", log, _stoppingToken);
+        AttackLogAdded?.Invoke(this, log);
     }
     
 

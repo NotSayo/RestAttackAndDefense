@@ -12,7 +12,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR(options =>
 {
-    options.EnableDetailedErrors = true; // Enable detailed SignalR errors for debugging
     options.MaximumReceiveMessageSize = 102400000;
 });
 

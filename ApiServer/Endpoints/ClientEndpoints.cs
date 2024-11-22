@@ -11,5 +11,11 @@ public static class ClientEndpoints
         {
             return Results.Ok(controller.DefenceLogs);
         });
+
+        endpoints.MapGet("/attackLog", (
+            GameController controller) =>
+        {
+            return Results.Ok(controller.AttackLogs);
+        });
     }
 }
