@@ -1,8 +1,10 @@
-﻿using Classes;
+﻿using ApiServer.Hubs;
+using Classes;
 using Classes.Enums;
 using Classes.Models;
 using Classes.Statistics;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 
 namespace ApiServer.Controllers;
@@ -11,8 +13,10 @@ public class GameController : IDisposable
 {
     private ILogger<GameController> _logger;
     public event EventHandler<int>? StatisticsChanged;
+    public event EventHandler<DefenceLog> DefenceLogAdded;
     public ServerStatistics Statistics { get; set; }
     public readonly IOptions<GameSettings> Options;
+    public readonly IHubContext<ClientHub> _clientHub;
 
     public List<DefenceLog> DefenceLogs { get; private set; }
     public List<ServerStatistics> OtherClients;
@@ -27,11 +31,13 @@ public class GameController : IDisposable
     }
 
 
-    public GameController(IOptions<GameSettings> options, IHostApplicationLifetime lifetime, ILogger<GameController> logger)
+    public GameController(IOptions<GameSettings> options, IHostApplicationLifetime lifetime,
+        ILogger<GameController> logger, IHubContext<ClientHub> hub)
     {
         _logger = logger;
         _stoppingToken = lifetime.ApplicationStopping;
         Options = options;
+        _clientHub = hub;
 
         _rng = new Random();
         OtherClients = new List<ServerStatistics>(); // TODO implement auto searching for other clients
@@ -80,8 +86,10 @@ public class GameController : IDisposable
         return Results.Ok(new AttackResultModel() {AttackResult = AttackResult.Defended.ToString()});
     }
 
-    private void AddDefenceLog(HttpContext context, string Name, AttackResult result, AttackModel model, float newDefenceValue)
-        => DefenceLogs.Add(new DefenceLog()
+    private void AddDefenceLog(HttpContext context, string Name, AttackResult result, AttackModel model,
+        float newDefenceValue)
+    {
+        DefenceLogs.Add(new DefenceLog()
         {
             AttackId = DefenceLogs.Count + 1,
             AttackedByIp = context.Connection.RemoteIpAddress is not null ? context.Connection.RemoteIpAddress.ToString() : "Unknown",
@@ -90,6 +98,9 @@ public class GameController : IDisposable
             AttackValue = model.Attack,
             DefenceValue = newDefenceValue
         });
+        var t = async () => await _clientHub.Clients.All.SendAsync("UpdateDefenceLog", DefenceLogs.Last(), _stoppingToken);
+        _= t.Invoke();
+    }
     
 
     public void Dispose()

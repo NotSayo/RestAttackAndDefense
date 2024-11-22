@@ -4,7 +4,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiServer", "ApiServer\ApiS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Classes", "Classes\Classes.csproj", "{500C9801-387A-4822-A350-BF752637E772}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorApp", "BlazorApp\BlazorApp.csproj", "{F528CCD5-F915-46B3-B688-70DA43D50F1A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorWebassembly", "BlazorWebassembly\BlazorWebassembly.csproj", "{E66997D3-BFB9-4824-9F59-E372C2EAC61C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,9 +20,9 @@ Global
 		{500C9801-387A-4822-A350-BF752637E772}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{500C9801-387A-4822-A350-BF752637E772}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{500C9801-387A-4822-A350-BF752637E772}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F528CCD5-F915-46B3-B688-70DA43D50F1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F528CCD5-F915-46B3-B688-70DA43D50F1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F528CCD5-F915-46B3-B688-70DA43D50F1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F528CCD5-F915-46B3-B688-70DA43D50F1A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E66997D3-BFB9-4824-9F59-E372C2EAC61C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E66997D3-BFB9-4824-9F59-E372C2EAC61C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E66997D3-BFB9-4824-9F59-E372C2EAC61C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E66997D3-BFB9-4824-9F59-E372C2EAC61C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

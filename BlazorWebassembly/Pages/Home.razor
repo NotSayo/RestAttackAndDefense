@@ -1,0 +1,105 @@
+﻿@page "/"
+@using System.Collections.ObjectModel
+@using Classes.Enums
+@using Classes.Statistics
+@using Microsoft.AspNetCore.SignalR.Client
+@attribute [StreamRendering]
+@implements IAsyncDisposable
+
+@inject ILogger<Home> logger
+
+
+
+@if (DefenceLogs is not null)
+{
+    @foreach(var log in DefenceLogs)
+    {
+        <span>@log.AttackId</span>
+        <span>@log.AttackedByName</span>
+        <span>@log.AttackedByIp</span>
+        <span>@log.Result</span>
+        <span>@log.AttackValue</span>
+        <span>@log.DefenceValue</span>
+        <br/>
+    }
+}
+
+
+<button @onclick="async() => {await GetDefenceLogs();}">Get things</button>
+<button @onclick="AddTask">Add thing</button>
+
+
+
+@code {
+    private HubConnection? _connection { get; set; }
+    public List<DefenceLog> DefenceLogs { get; set; } = new List<DefenceLog>()
+    {
+        new()
+        {
+            AttackId = 1,
+            AttackValue = 1,
+            DefenceValue = 1,
+            Result = AttackResult.Defended,
+            AttackedByIp = "",
+            AttackedByName = ""
+        }
+    };
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _connection = new HubConnectionBuilder()
+            .WithUrl("http://localhost:1337/clientHub", options =>
+            {
+                options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets;
+            })
+            .Build();
+        MapSignalrEvents();
+        await _connection!.StartAsync();
+
+        logger.LogInformation("");
+    }
+    private async Task GetDefenceLogs()
+    {
+        await _connection!.SendAsync("GetDefenceLogs");
+    }
+
+    private void AddTask()
+    {
+        DefenceLogs.Add(new DefenceLog()
+        {
+            AttackId = DefenceLogs.Count + 1,
+            AttackValue = 1,
+            DefenceValue = 1,
+            Result = AttackResult.Defended,
+            AttackedByIp = "",
+            AttackedByName = ""
+        });
+        InvokeAsync(StateHasChanged);
+        logger.LogInformation($"Added with {DefenceLogs.Last().AttackId}");
+    }
+
+
+    private void MapSignalrEvents()
+    {
+        _connection.On<List<DefenceLog>>("ReceiveDefenceLogs", (logs) =>
+        {
+            logger.LogInformation($"ReceiveDefenceLogs {logs.Count} {logs.First().AttackId.ToString()}");
+            DefenceLogs = logs;
+            InvokeAsync(StateHasChanged);
+        });
+        _connection.On<DefenceLog>("UpdateDefenceLog", (log) =>
+        {
+            logger.LogInformation("UpdateDefenceLog");
+            DefenceLogs.Add(log);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_connection != null) await _connection.DisposeAsync();
+    }
+
+}
