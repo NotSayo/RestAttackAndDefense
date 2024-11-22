@@ -1,6 +1,6 @@
-@ApiServer_HostAddress = http://localhost:5262
+@ApiServer_HostAddress = http://localhost:1337
 
-GET {{ApiServer_HostAddress}}/weatherforecast/
+GET {{ApiServer_HostAddress}}//
 Accept: application/json
 
 ###
