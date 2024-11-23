@@ -1,4 +1,7 @@
-﻿using ApiServer.Controllers;
+﻿using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using ApiServer.Controllers;
+using Classes.Statistics;
 
 namespace ApiServer.Endpoints;
 
@@ -17,5 +20,15 @@ public static class ClientEndpoints
         {
             return Results.Ok(controller.AttackLogs);
         });
+
+        endpoints.MapGet("/clients", (GameController controller, ILogger<Program> logger) =>
+        {
+            logger.LogInformation("Retrieving enemy clients.");
+
+            var clients = controller.EnemyClients.Values.ToList(); // Convert to a list
+            return Results.Ok(clients);
+        });
+
+
     }
 }

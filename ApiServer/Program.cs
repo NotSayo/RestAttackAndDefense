@@ -25,8 +25,10 @@ builder.Services.AddCors();
 
 builder.Services.AddSingleton<GameController>();
 builder.Services.AddHostedService<DisableServerService>();
+builder.Services.AddHostedService<UpdateEnemyClientsService>();
 
 builder.Services.Configure<GameSettings>(builder.Configuration.GetSection("GameSettings"));
+builder.Services.Configure<List<string>>(builder.Configuration.GetSection("EnemiesIpAddresses"));
 
 
 

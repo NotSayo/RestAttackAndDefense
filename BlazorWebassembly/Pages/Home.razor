@@ -1,10 +1,12 @@
 ﻿@page "/"
 @using System.Collections.ObjectModel
+@using System.Threading.Channels
 @using Classes.Enums
 @using Classes.Statistics
 @using Microsoft.AspNetCore.SignalR.Client
 @attribute [StreamRendering]
 @inject NavigationManager NavigationManager
+@inject AttackManagerService AttackManager
 @implements IAsyncDisposable
 
 @inject ILogger<Home> logger
@@ -23,19 +25,34 @@
         <span>@log.DefenceValue</span>
         <br/>
     }
-
-    <button @onclick="async () => await SendAttack()">SendAttack</button>
 }
 
+@if (AttackManager.OtherClients.Count > 0)
+{
+    @foreach(var client in AttackManager.OtherClients)
+    {
+        <span>@client.IpAddress</span>
+        <span>@client.Attack</span>
+        <span>@client.Defense</span>
+        <span>@client.State</span>
+        <br/>
+    }
+}
+else
+{
+    <div>No cliens</div>
+}
 
-<button @onclick="async() => {await GetDefenceLogs();}">Get things</button>
-<button @onclick="AddTask">Add thing</button>
+<button @onclick="async () => await SendAttack()">SendAttack</button>
+
+
 
 
 
 @code {
     private HubConnection? _connection { get; set; }
     public List<DefenceLog> DefenceLogs { get; set; } = new List<DefenceLog>();
+
 
     public async Task SendAttack()
     {
@@ -57,11 +74,6 @@
             .Build();
         MapSignalrEvents();
         await _connection!.StartAsync();
-
-        logger.LogInformation("");
-    }
-    private async Task GetDefenceLogs()
-    {
         await _connection!.SendAsync("GetDefenceLogs");
     }
 
@@ -95,6 +107,12 @@
             DefenceLogs.Add(log);
             InvokeAsync(StateHasChanged);
         });
+        _connection.On<List<EnemyClient>>("UpdateEnemyClients", (clients) =>
+        {
+            AttackManager.UpdateEnemyClients(clients);
+            InvokeAsync(StateHasChanged);
+        });
+        AttackManager.UpdateEnemyClients(new ());
     }
 
 

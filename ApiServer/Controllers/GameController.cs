@@ -1,4 +1,6 @@
-﻿using ApiServer.Hubs;
+﻿using System.Collections.Concurrent;
+using System.Threading.Channels;
+using ApiServer.Hubs;
 using Classes;
 using Classes.Enums;
 using Classes.Models;
@@ -21,7 +23,8 @@ public class GameController : IDisposable
 
     public List<DefenceLog> DefenceLogs { get; private set; }
     public List<AttackLog> AttackLogs { get; private set; }
-    public List<ServerStatistics> OtherClients;
+    public ConcurrentDictionary<string, EnemyClient> EnemyClients { get; } = new(); // Thread-safe data structure
+    public List<string> IpAddresses { get; set; }
     private readonly Random _rng;
     private readonly CancellationToken _stoppingToken;
 
@@ -33,7 +36,7 @@ public class GameController : IDisposable
     }
 
 
-    public GameController(IOptions<GameSettings> options, IHostApplicationLifetime lifetime,
+    public GameController(IOptions<GameSettings> options, IOptions<List<string>> addressList, IHostApplicationLifetime lifetime,
         ILogger<GameController> logger, IHubContext<ClientHub> hub)
     {
         _logger = logger;
@@ -42,9 +45,9 @@ public class GameController : IDisposable
         _clientHub = hub;
 
         _rng = new Random();
-        OtherClients = new List<ServerStatistics>(); // TODO implement auto searching for other clients
         DefenceLogs = new List<DefenceLog>();
         AttackLogs = new List<AttackLog>();
+        IpAddresses = addressList.Value;
 
         Statistics = new ServerStatistics
         {
