@@ -1,12 +1,11 @@
 ﻿@page "/"
-@using System.Collections.ObjectModel
-@using System.Threading.Channels
+@using BlazorWebassembly.Services
 @using Classes.Enums
 @using Classes.Statistics
 @using Microsoft.AspNetCore.SignalR.Client
 @attribute [StreamRendering]
-@inject NavigationManager NavigationManager
 @inject AttackManagerService AttackManager
+@inject AttackLauncher AttackLauncher
 @implements IAsyncDisposable
 
 @inject ILogger<Home> logger
@@ -40,11 +39,27 @@
 }
 else
 {
-    <div>No cliens</div>
+    <div>No clients</div>
+}
+
+@if (AttackManager.Statistics is not null)
+{
+    <span>@AttackManager.Statistics.Points</span>
+    <span>@AttackManager.Statistics.Attack</span>
+    <span>@AttackManager.Statistics.Defense</span>
+    <span>@AttackManager.Statistics.State.ToString()</span>
+}
+
+@if (AttackManager.TargetClasification is not null)
+{
+    @foreach(var target in AttackManager.TargetClasification)
+    {
+        <span>@target.Key.IpAddress @target.Value</span>
+        <br/>
+    }
 }
 
 <button @onclick="async () => await SendAttack()">SendAttack</button>
-
 
 
 
@@ -61,7 +76,6 @@ else
             AttackId = 1,
             AttackedIp = "",
             AttackValue = 1,
-            DefenceValue = 1,
             Result = AttackResult.Defended,
 
         });
@@ -75,22 +89,15 @@ else
         MapSignalrEvents();
         await _connection!.StartAsync();
         await _connection!.SendAsync("GetDefenceLogs");
+        await _connection!.SendAsync("GetStatistics");
+        await _connection.SendAsync("ReceiveEnemyClients");
+
+        var t = () => AttackLauncher.TargetSelector(AttackManager.StoppingToken.Token);
+        _ = t.Invoke();
+
+        AttackManager.AttackLogAdded += async (e, log) => { await _connection.SendAsync("LogAttack", log); };
     }
 
-    private void AddTask()
-    {
-        DefenceLogs.Add(new DefenceLog()
-        {
-            AttackId = DefenceLogs.Count + 1,
-            AttackValue = 1,
-            DefenceValue = 1,
-            Result = AttackResult.Defended,
-            AttackedByIp = "",
-            AttackedByName = ""
-        });
-        InvokeAsync(StateHasChanged);
-        logger.LogInformation($"Added with {DefenceLogs.Last().AttackId}");
-    }
 
 
     private void MapSignalrEvents()
@@ -112,7 +119,12 @@ else
             AttackManager.UpdateEnemyClients(clients);
             InvokeAsync(StateHasChanged);
         });
-        AttackManager.UpdateEnemyClients(new ());
+
+        _connection.On<ServerStatistics>("ReceiveStatistics", (stats) =>
+        {
+            AttackManager.UpdateStatistics(stats);
+            InvokeAsync(StateHasChanged);
+        });
     }
 
 

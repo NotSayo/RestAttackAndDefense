@@ -6,7 +6,7 @@ namespace ApiServer.Services;
 
 public class DisableServerService(IHostApplicationLifetime lifetime, GameController controller, ILogger<DisableServerService> _logger) : BackgroundService
 {
-
+    private int _attackRewardCount = 1;
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         controller.StatisticsChanged += OnStatisticsChanged;
@@ -15,7 +15,7 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
         return Task.CompletedTask;
     }
 
-    private void OnStatisticsChanged(object? sender, int e)
+    private void OnStatisticsChanged(object? sender, ServerStatistics e)
     {
         if (controller.Statistics.Points <= 0)
         {
@@ -28,6 +28,8 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
 
     private void AttackHandler(object? sender, AttackLog e)
     {
+        if(controller.Statistics.Points <= 0)
+            return;
         if (e.Result == AttackResult.Hacked)
         {
             controller.UpdateStatistics((stats) =>
@@ -35,19 +37,30 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
                 stats.Points += controller.Options.Value.PointsGainedForSuccessfulHack;
                 stats.Attack += controller.Options.Value.AttackValueGainedForSuccessfulHack;
             });
+            if (controller.AttackLogs.Count(s => s.Result == AttackResult.Hacked) >= _attackRewardCount *
+                controller.Options.Value.NumberOfSuccessfulHacksForExtraDefense)
+            {
+                _attackRewardCount++;
+                controller.UpdateStatistics((stats) =>
+                {
+                    stats.Defense += controller.Options.Value.NumberOfDefensePointsGainedForExtraDefense;
+                });
+            }
         }
         else
         {
             controller.UpdateStatistics((stats) =>
             {
-                stats.Points -= controller.Options.Value.PointsLostForUnsuccessfulHack;
-                stats.Attack -= controller.Options.Value.AttackValueLostForUnsuccessfulHack;
+                stats.Points -= controller.Statistics.Points == 0 ? 0 : controller.Options.Value.PointsLostForUnsuccessfulHack;
+                stats.Attack -= controller.Statistics.Attack == 0 ? 0 : controller.Options.Value.AttackValueLostForUnsuccessfulHack;
             });
         }
     }
 
     private void DefenceHandler(object? sender, DefenceLog e)
     {
+        if(controller.Statistics.Points <= 0)
+            return;
         if (e.Result == AttackResult.Defended)
         {
             controller.UpdateStatistics((stats) =>
@@ -60,18 +73,29 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
         {
             controller.UpdateStatistics((stats) =>
             {
-                stats.Points -= controller.Options.Value.PointsLostForUnsuccessfulDefense;
-                stats.Defense -= controller.Options.Value.DefenseValueLostForUnsuccessfulDefense;
+                stats.Points -= controller.Statistics.Points == 0 ? 0 : controller.Options.Value.PointsLostForUnsuccessfulDefense;
+                stats.Defense -= controller.Statistics.Defense == 0 ? 0 : controller.Options.Value.DefenseValueLostForUnsuccessfulDefense;
             });
+            var t =  () => StopServer();
+            _=t.Invoke();
         }
     }
 
     private async Task StopServer()
     {
-        controller.Statistics.State = ServerState.disabled;
+        controller.UpdateStatistics(stats =>
+        {
+            stats.State = stats.State == ServerState.stopped ? ServerState.stopped : ServerState.disabled;
+        });
         await Task.Delay(controller.Options.Value.DisabledStateDurationSeconds * 1000, lifetime.ApplicationStopping);
-        controller.Statistics.State = ServerState.running;
-        _logger.LogInformation("Server is running again.");
+        controller.UpdateStatistics(stats =>
+        {
+            stats.State  = controller.Statistics.State == ServerState.stopped ? ServerState.stopped : ServerState.running;
+        });
+        if(controller.Statistics.State == ServerState.running)
+            _logger.LogInformation("Server is running again.");
+        else
+            _logger.LogCritical("Server is stopped.");
     }
 
     public override void Dispose()

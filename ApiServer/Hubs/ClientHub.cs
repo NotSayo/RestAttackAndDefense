@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace ApiServer.Hubs;
 
-public class ClientHub(GameController controller) : Hub
+public class ClientHub(GameController controller, ILogger<ClientHub> _logger) : Hub
 {
     public async Task GetStatistics()
     {
@@ -16,6 +16,11 @@ public class ClientHub(GameController controller) : Hub
         await Clients.Caller.SendAsync("ReceiveDefenceLogs", controller.DefenceLogs);
     }
 
+    public void ReceiveEnemyClients()
+    {
+        Clients.Caller.SendAsync("UpdateEnemyClients", controller.EnemyClients.Values.ToList());
+    }
+
     public async Task UpdateDefenceLog(DefenceLog newLog)
     {
         await Clients.Caller.SendAsync("UpdateDefenceLog", newLog);
@@ -23,6 +28,10 @@ public class ClientHub(GameController controller) : Hub
 
     public void LogAttack(AttackLog log)
     {
+        log.AttackId = controller.AttackLogs.Count + 1;
+        _logger.LogInformation($"Received attack log: {log.AttackId} : {log.AttackedIp} : {log.Result}");
         controller.AddAttackLog(log);
     }
+
+
 }

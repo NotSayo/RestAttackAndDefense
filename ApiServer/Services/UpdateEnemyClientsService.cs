@@ -58,7 +58,7 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
                     break;
                 }
             }
-            logger.LogInformation("Enemy clients updated successfully.");
+            // logger.LogInformation("Enemy clients updated successfully.");
             await hub.Clients.All.SendAsync("UpdateEnemyClients", controller.EnemyClients.Values.ToList(), stoppingToken);
             await Task.Delay(3000, stoppingToken);
         }

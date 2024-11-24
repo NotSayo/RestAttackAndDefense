@@ -5,5 +5,5 @@ namespace Classes.Models;
 public class AttackModel
 {
     [JsonPropertyName("Attack")]
-    public float Attack { get; set; }
+    public double Attack { get; set; }
 }

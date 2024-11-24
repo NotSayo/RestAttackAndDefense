@@ -6,6 +6,7 @@ using Classes.Enums;
 using Classes.Models;
 using Classes.Statistics;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 
@@ -14,7 +15,7 @@ namespace ApiServer.Controllers;
 public class GameController : IDisposable
 {
     private ILogger<GameController> _logger;
-    public event EventHandler<int>? StatisticsChanged;
+    public event EventHandler<ServerStatistics>? StatisticsChanged;
     public event EventHandler<DefenceLog>? DefenceLogAdded;
     public event EventHandler<AttackLog>? AttackLogAdded;
     public ServerStatistics Statistics { get; set; }
@@ -30,9 +31,8 @@ public class GameController : IDisposable
 
     public void UpdateStatistics(Action<ServerStatistics> updateAction)
     {
-        var previousPoints = Statistics.Points;
         updateAction(Statistics); // Perform updates via the action
-        StatisticsChanged?.Invoke(this, previousPoints); // Notify after changes
+        StatisticsChanged?.Invoke(this, Statistics); // Notify after changes
     }
 
 
@@ -49,6 +49,8 @@ public class GameController : IDisposable
         AttackLogs = new List<AttackLog>();
         IpAddresses = addressList.Value;
 
+        StatisticsChanged += async (sender, e) => { await _clientHub.Clients.All.SendAsync("ReceiveStatistics", e, _stoppingToken); };
+
         Statistics = new ServerStatistics
         {
             Points = Options.Value.StartingPoints,
@@ -56,18 +58,21 @@ public class GameController : IDisposable
             Defense = Options.Value.StartingDefenseValue,
             State = ServerState.running
         };
+        StatisticsChanged.Invoke(this, Statistics);
+
+
     }
 
     public bool IsServiceAvailable() => Statistics.State == ServerState.running;
 
 
-    // IActionResult => ActionResult
-    public async Task<IResult> ReceiveAttack(HttpContext context,string Name, AttackModel attackModel)
+    public async Task<IResult> ReceiveAttack(HttpContext context, [FromHeader(Name="Attacker")] string Name, AttackModel attackModel)
     {
         if(string.IsNullOrEmpty(Name) || string.IsNullOrEmpty(Name))
             return Results.BadRequest("Name and attack value must be provided");
         if (!IsServiceAvailable())
             return Results.StatusCode(statusCode:503);
+        _logger.LogInformation($"Received attack from {context.Connection.RemoteIpAddress} with attack value {attackModel.Attack}");
 
         double newDefenceValue = Statistics.Defense * ((_rng.NextDouble() / 5 - 0.1) + 1);
 
@@ -79,7 +84,7 @@ public class GameController : IDisposable
 
         AddDefenceLog(context, Name, AttackResult.Defended, attackModel, (float) newDefenceValue);
 
-        return Results.Ok(new AttackResultModel() {AttackResult = AttackResult.Defended.ToString()});
+        return Results.Ok(new AttackResultModel() {AttackResult = DefenceLogs.Last().Result.ToString()});
     }
 
     public void AddDefenceLog(HttpContext context, string name, AttackResult result, AttackModel model,
@@ -90,8 +95,8 @@ public class GameController : IDisposable
             AttackId = DefenceLogs.Count + 1,
             AttackedByIp = context.Connection.RemoteIpAddress is not null ? context.Connection.RemoteIpAddress.ToString() : "Unknown",
             AttackedByName = name,
-            Result = AttackResult.Hacked,
-            AttackValue = model.Attack,
+            Result = result,
+            AttackValue = (float)model.Attack,
             DefenceValue = newDefenceValue
         });
 
