@@ -2,5 +2,5 @@
 
 public class AttackResultModel
 {
-    public required string AttackResult { get; set; }
+    public required string HackingResult { get; set; }
 }

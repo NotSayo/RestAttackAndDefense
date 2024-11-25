@@ -11,27 +11,18 @@ public class ClientHub(GameController controller, ILogger<ClientHub> _logger) : 
         await Clients.Caller.SendAsync("ReceiveStatistics", controller.Statistics);
     }
 
-    public async Task GetDefenceLogs()
+    public async Task GetDefenseLogs()
     {
-        await Clients.Caller.SendAsync("ReceiveDefenceLogs", controller.DefenceLogs);
+        await Clients.Caller.SendAsync("ReceiveDefenseLogs", controller.DefenseLogs);
     }
 
-    public void ReceiveEnemyClients()
+    public async Task GetAttackLogs()
     {
-        Clients.Caller.SendAsync("UpdateEnemyClients", controller.EnemyClients.Values.ToList());
+        await Clients.Caller.SendAsync("ReceiveAttackLogs", controller.AttackLogs);
     }
 
-    public async Task UpdateDefenceLog(DefenceLog newLog)
-    {
-        await Clients.Caller.SendAsync("UpdateDefenceLog", newLog);
-    }
 
-    public void LogAttack(AttackLog log)
-    {
-        log.AttackId = controller.AttackLogs.Count + 1;
-        _logger.LogInformation($"Received attack log: {log.AttackId} : {log.AttackedIp} : {log.Result}");
-        controller.AddAttackLog(log);
-    }
+
 
 
 }

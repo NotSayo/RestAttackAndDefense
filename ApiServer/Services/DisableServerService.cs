@@ -10,7 +10,7 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         controller.StatisticsChanged += OnStatisticsChanged;
-        controller.DefenceLogAdded += DefenceHandler;
+        controller.DefenseLogAdded += DefenseHandler;
         controller.AttackLogAdded += AttackHandler;
         return Task.CompletedTask;
     }
@@ -23,7 +23,6 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
             controller.Statistics.State = ServerState.stopped;
             return;
         }
-
     }
 
     private void AttackHandler(object? sender, AttackLog e)
@@ -57,7 +56,7 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
         }
     }
 
-    private void DefenceHandler(object? sender, DefenceLog e)
+    private void DefenseHandler(object? sender, DefenseLog e)
     {
         if(controller.Statistics.Points <= 0)
             return;

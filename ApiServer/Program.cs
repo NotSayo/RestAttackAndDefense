@@ -3,6 +3,8 @@ using ApiServer.Controllers;
 using ApiServer.Endpoints;
 using ApiServer.Hubs;
 using ApiServer.Services;
+using BlazorWebassembly.Services;
+using Classes.Models;
 using Classes.Statistics;
 using Microsoft.AspNetCore.ResponseCompression;
 
@@ -24,11 +26,16 @@ builder.Services.AddResponseCompression(opts =>
 builder.Services.AddCors();
 
 builder.Services.AddSingleton<GameController>();
+builder.Services.AddSingleton<AttackManagerService>();
 builder.Services.AddHostedService<DisableServerService>();
 builder.Services.AddHostedService<UpdateEnemyClientsService>();
+builder.Services.AddHostedService<AttackLauncher>();
 
 builder.Services.Configure<GameSettings>(builder.Configuration.GetSection("GameSettings"));
 builder.Services.Configure<List<string>>(builder.Configuration.GetSection("EnemiesIpAddresses"));
+builder.Services.Configure<NameModel>(builder.Configuration.GetSection("DisplayedName"));
+
+
 
 
 
@@ -46,6 +53,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
 
 app.UseResponseCompression();
 

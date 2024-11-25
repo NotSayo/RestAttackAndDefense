@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
+using ApiServer.Controllers;
 using Classes.Enums;
 using Classes.Models;
 using Classes.Statistics;
@@ -8,17 +9,17 @@ using Microsoft.Extensions.Hosting;
 
 namespace BlazorWebassembly.Services;
 
-public class AttackLauncher(AttackManagerService attackManagerService) : IDisposable
+public class AttackLauncher(AttackManagerService attackManagerService, GameController controller) : BackgroundService
 {
     private readonly Random _rng = new Random();
     private readonly HttpClient _client = new HttpClient();
 
-    public async Task TargetSelector(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await Task.Delay(1000, stoppingToken);
         while (true)
         {
-            while(attackManagerService.Statistics.State != ServerState.running || attackManagerService.Strategy == AttackStrategy.WaitItOut)
+            while(controller.Statistics.State != ServerState.running || attackManagerService.Strategy == AttackStrategy.WaitItOut)
             {
                 await Task.Delay(100, stoppingToken);
             }
@@ -73,13 +74,21 @@ public class AttackLauncher(AttackManagerService attackManagerService) : IDispos
 
     private async Task LaunchAttack(EnemyClient client)
     {
-        var attackValue = attackManagerService.Statistics.Attack * ((_rng.NextDouble() / 5 - 0.1) + 1);
+        var attackValue = controller.Statistics.Attack * ((_rng.NextDouble() / 5 - 0.1) + 1);
         var request = new HttpRequestMessage(HttpMethod.Post, $"http://{client.IpAddress}:1337/hacking-attempt")
         {
             Content = JsonContent.Create(new LaunchAttackModel() { Attack = attackValue })
         };
-        request.Headers.Add("Attacker", "Olaf");
-        var response = await _client.SendAsync(request);
+        request.Headers.Add("Attacker", controller.DisplayName);
+        HttpResponseMessage response;
+        try
+        {
+             response = await _client.SendAsync(request);
+        } catch (HttpRequestException)
+        {
+            attackManagerService.TargetClasification[client] = TargetType.None;
+            return;
+        }
         if (response.StatusCode == HttpStatusCode.OK)
         {
             var result = await response.Content.ReadFromJsonAsync<AttackResultModel>();
@@ -87,7 +96,7 @@ public class AttackLauncher(AttackManagerService attackManagerService) : IDispos
             {
                 AttackedIp = client.IpAddress,
                 AttackValue = attackValue,
-                Result = result!.AttackResult == "Hacked" ? AttackResult.Hacked : AttackResult.Defended
+                Result = result!.HackingResult == "Hacked" ? AttackResult.Hacked : AttackResult.Defended
             };
             attackManagerService.AddAttackLog(log);
         }
@@ -95,8 +104,9 @@ public class AttackLauncher(AttackManagerService attackManagerService) : IDispos
 
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _client.Dispose();
     }
+
 }

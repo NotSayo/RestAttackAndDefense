@@ -1,128 +1,99 @@
 ﻿@page "/"
-@using BlazorWebassembly.Services
-@using Classes.Enums
 @using Classes.Statistics
 @using Microsoft.AspNetCore.SignalR.Client
 @attribute [StreamRendering]
-@inject AttackManagerService AttackManager
-@inject AttackLauncher AttackLauncher
 @implements IAsyncDisposable
 
-@inject ILogger<Home> logger
-
-
-
-@if (DefenceLogs is not null)
+@if (Statistics is not null)
 {
-    @foreach(var log in DefenceLogs)
+    <div>@Statistics.State</div>
+    <div>@Statistics.Points</div>
+    <div>@Statistics.Attack</div>
+    <div>@Statistics.Defense</div>
+}
+
+@if (DefenseLogs is not null)
+{
+    @foreach(var log in DefenseLogs)
     {
         <span>@log.AttackId</span>
         <span>@log.AttackedByName</span>
         <span>@log.AttackedByIp</span>
         <span>@log.Result</span>
         <span>@log.AttackValue</span>
-        <span>@log.DefenceValue</span>
+        <span>@log.DefenseValue</span>
         <br/>
     }
 }
 
-@if (AttackManager.OtherClients.Count > 0)
+@if (AttackLogs is not null)
 {
-    @foreach(var client in AttackManager.OtherClients)
+    @foreach(var log in AttackLogs)
     {
-        <span>@client.IpAddress</span>
-        <span>@client.Attack</span>
-        <span>@client.Defense</span>
-        <span>@client.State</span>
+        <span>@log.AttackId</span>
+        <span>@log.AttackedIp</span>
+        <span>@log.AttackValue</span>
+        <span>@log.Result</span>
         <br/>
     }
 }
-else
-{
-    <div>No clients</div>
-}
-
-@if (AttackManager.Statistics is not null)
-{
-    <span>@AttackManager.Statistics.Points</span>
-    <span>@AttackManager.Statistics.Attack</span>
-    <span>@AttackManager.Statistics.Defense</span>
-    <span>@AttackManager.Statistics.State.ToString()</span>
-}
-
-@if (AttackManager.TargetClasification is not null)
-{
-    @foreach(var target in AttackManager.TargetClasification)
-    {
-        <span>@target.Key.IpAddress @target.Value</span>
-        <br/>
-    }
-}
-
-<button @onclick="async () => await SendAttack()">SendAttack</button>
 
 
 
 
 @code {
+    private ServerStatistics? Statistics { get; set; }
     private HubConnection? _connection { get; set; }
-    public List<DefenceLog> DefenceLogs { get; set; } = new List<DefenceLog>();
+    private List<DefenseLog>? DefenseLogs { get; set; }
+    private List<AttackLog>? AttackLogs { get; set; }
 
-
-    public async Task SendAttack()
-    {
-        await _connection!.SendAsync("LogAttack", new AttackLog
-        {
-            AttackId = 1,
-            AttackedIp = "",
-            AttackValue = 1,
-            Result = AttackResult.Defended,
-
-        });
-    }
 
     protected override async Task OnInitializedAsync()
     {
         _connection = new HubConnectionBuilder()
             .WithUrl("http://localhost:1337/clientHub")
+            .WithAutomaticReconnect()
             .Build();
         MapSignalrEvents();
-        await _connection!.StartAsync();
-        await _connection!.SendAsync("GetDefenceLogs");
-        await _connection!.SendAsync("GetStatistics");
-        await _connection.SendAsync("ReceiveEnemyClients");
+        try
+        {
+            await _connection.StartAsync();
+        } catch (HttpRequestException)
+        {
+        }
 
-        var t = () => AttackLauncher.TargetSelector(AttackManager.StoppingToken.Token);
-        _ = t.Invoke();
+        _connection.Reconnected += async (e) =>
+        {
+            await ReceiveData();
+        };
+        await ReceiveData();
 
-        AttackManager.AttackLogAdded += async (e, log) => { await _connection.SendAsync("LogAttack", log); };
+
     }
 
-
+    private async Task ReceiveData()
+    {
+        await _connection!.InvokeAsync("GetStatistics");
+        await _connection!.InvokeAsync("GetAttackLogs");
+        await _connection!.InvokeAsync("GetDefenseLogs");
+    }
 
     private void MapSignalrEvents()
     {
-        _connection.On<List<DefenceLog>>("ReceiveDefenceLogs", (logs) =>
+        _connection!.On<ServerStatistics>("ReceiveStatistics", (stats) =>
         {
-            logger.LogInformation($"ReceiveDefenceLogs {logs.Count} {logs.First().AttackId.ToString()}");
-            DefenceLogs = logs;
+            Statistics = stats;
             InvokeAsync(StateHasChanged);
         });
-        _connection.On<DefenceLog>("UpdateDefenceLog", (log) =>
+        _connection!.On<List<AttackLog>>("ReceiveAttackLogs", (logs) =>
         {
-            logger.LogInformation("UpdateDefenceLog");
-            DefenceLogs.Add(log);
-            InvokeAsync(StateHasChanged);
-        });
-        _connection.On<List<EnemyClient>>("UpdateEnemyClients", (clients) =>
-        {
-            AttackManager.UpdateEnemyClients(clients);
+            AttackLogs = logs;
             InvokeAsync(StateHasChanged);
         });
 
-        _connection.On<ServerStatistics>("ReceiveStatistics", (stats) =>
+        _connection!.On<List<DefenseLog>>("ReceiveDefenseLogs", (logs) =>
         {
-            AttackManager.UpdateStatistics(stats);
+            DefenseLogs = logs;
             InvokeAsync(StateHasChanged);
         });
     }

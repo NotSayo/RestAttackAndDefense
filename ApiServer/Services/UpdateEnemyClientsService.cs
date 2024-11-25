@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Text;
 using System.Text.Json;
 using ApiServer.Controllers;
 using ApiServer.Hubs;
@@ -20,6 +21,11 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            if(controller.Statistics.State == ServerState.stopped)
+            {
+                await Task.Delay(3000, stoppingToken);
+                continue;
+            }
             try
             {
                 foreach (var address in controller.IpAddresses)
@@ -39,10 +45,15 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
                                 Defense = enemyStatus.Defense,
                                 State = Enum.Parse<ServerState>(enemyStatus.State)
                             };
-                            controller.EnemyClients[client.IpAddress] = client; // Update client in dictionary
+                            // controller.EnemyClients[client.IpAddress] = client;
+                            controller.UpdateEnemyClient(new (client.IpAddress, client));
                         }
                     }
                 }
+            }
+            catch (HttpRequestException)
+            {
+                logger.LogWarning(new StringBuilder().Append("Could not connect to enemy client.").ToString(), stoppingToken);
             }
             catch (TaskCanceledException)
             {
@@ -58,8 +69,7 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
                     break;
                 }
             }
-            // logger.LogInformation("Enemy clients updated successfully.");
-            await hub.Clients.All.SendAsync("UpdateEnemyClients", controller.EnemyClients.Values.ToList(), stoppingToken);
+            logger.LogInformation("Enemy clients updated successfully.");
             await Task.Delay(3000, stoppingToken);
         }
     }

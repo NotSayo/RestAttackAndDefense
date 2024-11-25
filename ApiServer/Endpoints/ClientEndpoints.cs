@@ -9,10 +9,10 @@ public static class ClientEndpoints
 {
     public static void MapClientEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/defenceLog", (
+        endpoints.MapGet("/defenseLog", (
             GameController controller) =>
         {
-            return Results.Ok(controller.DefenceLogs);
+            return Results.Ok(controller.DefenseLogs);
         });
 
         endpoints.MapGet("/attackLog", (
@@ -21,14 +21,10 @@ public static class ClientEndpoints
             return Results.Ok(controller.AttackLogs);
         });
 
-        endpoints.MapGet("/clients", (GameController controller, ILogger<Program> logger) =>
+        endpoints.MapGet("/clients", (GameController controller) =>
         {
-            logger.LogInformation("Retrieving enemy clients.");
-
-            var clients = controller.EnemyClients.Values.ToList(); // Convert to a list
+            var clients = controller.EnemyClients.Values.ToList();
             return Results.Ok(clients);
         });
-
-
     }
 }
