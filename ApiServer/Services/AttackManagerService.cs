@@ -31,7 +31,7 @@ public class AttackManagerService
 
     public void AddAttackLog(AttackLog log)
     {
-        _controller.AddAttackLog(log);
+        _=_controller.AddAttackLog(log);
     }
 
     public void AnalyzeEnemies()

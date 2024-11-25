@@ -2,5 +2,5 @@
 
 public class IpAddressList
 {
-    public List<string> IpAddresses { get; set; }
+    public required List<string> IpAddresses { get; set; }
 }

@@ -16,7 +16,7 @@ public class AttackLauncher(AttackManagerService attackManagerService, GameContr
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(1000, stoppingToken);
+        // await Task.Delay(1000, stoppingToken);
         while (true)
         {
             while(controller.Statistics.State != ServerState.running || attackManagerService.Strategy == AttackStrategy.WaitItOut)

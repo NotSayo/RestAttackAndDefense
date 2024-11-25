@@ -1,11 +1,8 @@
 ﻿using System.Collections.Concurrent;
-using System.Threading.Channels;
 using ApiServer.Hubs;
-using Classes;
 using Classes.Enums;
 using Classes.Models;
 using Classes.Statistics;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
@@ -72,7 +69,7 @@ public class GameController : IDisposable
 
     }
 
-    public async Task<IResult> ReceiveAttack(HttpContext context, [FromHeader(Name="Attacker")] string Name, AttackModel attackModel)
+    public IResult ReceiveAttack(HttpContext context, [FromHeader(Name="Attacker")] string Name, AttackModel attackModel)
     {
         if(string.IsNullOrEmpty(Name) || string.IsNullOrEmpty(Name))
             return Results.BadRequest("Name and attack value must be provided");
@@ -84,11 +81,11 @@ public class GameController : IDisposable
 
         if (attackModel.Attack > newDefenseValue)
         {
-            AddDefenseLog(context, Name, AttackResult.Hacked, attackModel, (float) newDefenseValue);
+            _= AddDefenseLog(context, Name, AttackResult.Hacked, attackModel, (float) newDefenseValue);
             return Results.Ok(new AttackResultModel() { HackingResult = AttackResult.Hacked.ToString() });
         }
 
-        AddDefenseLog(context, Name, AttackResult.Defended, attackModel, (float) newDefenseValue);
+        _= AddDefenseLog(context, Name, AttackResult.Defended, attackModel, (float) newDefenseValue);
 
         return Results.Ok(new AttackResultModel() {HackingResult = DefenseLogs.Last().Result.ToString()});
     }

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace ApiServer.Hubs;
 
-public class ClientHub(GameController controller, ILogger<ClientHub> _logger) : Hub
+public class ClientHub(GameController controller) : Hub
 {
     public async Task GetStatistics()
     {

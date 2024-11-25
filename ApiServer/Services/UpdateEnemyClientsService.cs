@@ -11,7 +11,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace ApiServer.Services;
 
-public class UpdateEnemyClientsService(GameController controller, ILogger<UpdateEnemyClientsService> logger, IHubContext<ClientHub> hub)
+public class UpdateEnemyClientsService(GameController controller, ILogger<UpdateEnemyClientsService> logger)
     : BackgroundService
 {
     public HttpClient Client { get; } = new HttpClient();
@@ -23,7 +23,7 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
         {
             if(controller.Statistics.State == ServerState.stopped)
             {
-                await Task.Delay(3000, stoppingToken);
+                await Task.Delay(500, stoppingToken);
                 continue;
             }
             try
@@ -43,9 +43,8 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
                                 Points = enemyStatus.Points,
                                 Attack = enemyStatus.Attack,
                                 Defense = enemyStatus.Defense,
-                                State = Enum.Parse<ServerState>(enemyStatus.State)
+                                State = Enum.Parse<ServerState>(enemyStatus.State ?? "error")
                             };
-                            // controller.EnemyClients[client.IpAddress] = client;
                             controller.UpdateEnemyClient(new (client.IpAddress, client));
                         }
                     }

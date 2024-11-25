@@ -12,6 +12,7 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
         controller.StatisticsChanged += OnStatisticsChanged;
         controller.DefenseLogAdded += DefenseHandler;
         controller.AttackLogAdded += AttackHandler;
+
         return Task.CompletedTask;
     }
 
@@ -21,7 +22,6 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
         {
             _logger.LogCritical("Game over! Server is stopping.");
             controller.Statistics.State = ServerState.stopped;
-            return;
         }
     }
 
@@ -75,8 +75,7 @@ public class DisableServerService(IHostApplicationLifetime lifetime, GameControl
                 stats.Points -= controller.Statistics.Points == 0 ? 0 : controller.Options.Value.PointsLostForUnsuccessfulDefense;
                 stats.Defense -= controller.Statistics.Defense == 0 ? 0 : controller.Options.Value.DefenseValueLostForUnsuccessfulDefense;
             });
-            var t =  () => StopServer();
-            _=t.Invoke();
+            _=StopServer();
         }
     }
 
