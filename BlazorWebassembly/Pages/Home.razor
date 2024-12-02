@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using Classes.Enums
 @using Classes.Statistics
 @using Microsoft.AspNetCore.SignalR.Client
 @attribute [StreamRendering]
@@ -6,36 +7,53 @@
 
 @if (Statistics is not null)
 {
-    <div>@Statistics.State</div>
-    <div>@Statistics.Points</div>
-    <div>@Statistics.Attack</div>
-    <div>@Statistics.Defense</div>
-}
+    <div class="container-fluid d-flex justify-content-center pt-5 @(Statistics.State == ServerState.running ? "bg-success" : Statistics.State == ServerState.disabled ? "bg-danger" : "bg-secondary")" style="min-height: 100vh; height: 100%; min-width: 100vw; width: 99%; overflow-x: unset">
+        <div class="row justify-content-start" style="width: 90%">
+            @if (AttackLogs is not null)
+            {
+                <div class="col-4">
+                    @foreach(var log in AttackLogs)
+                    {
+                        <div class="col-12">
+                            <h4>Attack Log: @log.AttackId</h4>
+                            <div>Ip: @log.AttackedIp</div>
+                            <div>Attack: @Math.Round((decimal) log.AttackValue, 2)</div>
+                            <div>Result: @log.Result.ToString()</div>
+                        </div>
+                    }
+                </div>
+            }
 
-@if (DefenseLogs is not null)
-{
-    @foreach(var log in DefenseLogs)
-    {
-        <span>@log.AttackId</span>
-        <span>@log.AttackedByName</span>
-        <span>@log.AttackedByIp</span>
-        <span>@log.Result</span>
-        <span>@log.AttackValue</span>
-        <span>@log.DefenseValue</span>
-        <br/>
-    }
-}
+            <div class="col-4 d-flex flex-column">
+                <h1 class="justify-content-center align-content-center align-self-center fs-1">@Statistics.State.ToString()</h1>
+                <div class="fs-3 justify-content-center">Points: @Statistics.Points</div>
+                <div class="fs-3 justify-content-center">Attack: @Statistics.Attack</div>
+                <div class="fs-3 justify-content-center">Defense: @Statistics.Defense</div>
 
-@if (AttackLogs is not null)
-{
-    @foreach(var log in AttackLogs)
-    {
-        <span>@log.AttackId</span>
-        <span>@log.AttackedIp</span>
-        <span>@log.AttackValue</span>
-        <span>@log.Result</span>
-        <br/>
-    }
+                @if (Statistics.State == ServerState.disabled && DefenseLogs is not null)
+                {
+                    <div class="fs-2 pt-5">Hacked by: @DefenseLogs!.Last().AttackedByName</div>
+                }
+            </div>
+
+            @if (DefenseLogs is not null)
+            {
+                <div class="col-4">
+                    @foreach(var log in DefenseLogs)
+                    {
+                        <div class="col-12">
+                            <h4>Defense Log: @log.AttackId</h4>
+                            <div>Ip: @log.AttackedByIp</div>
+                            <div>Name: @log.AttackedByName</div>
+                            <div>Attack: @Math.Round((decimal) log.AttackValue, 2)</div>
+                            <div>Defense: @Math.Round((decimal) log.DefenseValue, 2)</div>
+                            <div>Result: @log.Result.ToString()</div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
 }
 
 

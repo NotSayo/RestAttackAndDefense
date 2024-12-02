@@ -4,7 +4,7 @@ using Classes.Statistics;
 
 namespace ApiServer.Services;
 
-public class DisableServerService(IHostApplicationLifetime lifetime, GameController controller, ILogger<DisableServerService> _logger) : BackgroundService
+public class StatisticsManager(IHostApplicationLifetime lifetime, GameController controller, ILogger<StatisticsManager> _logger) : BackgroundService
 {
     private int _attackRewardCount = 1;
     protected override Task ExecuteAsync(CancellationToken stoppingToken)

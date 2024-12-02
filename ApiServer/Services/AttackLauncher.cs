@@ -1,79 +1,85 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Http.Json;
 using ApiServer.Controllers;
 using Classes.Enums;
 using Classes.Models;
 using Classes.Statistics;
-using Microsoft.Extensions.Hosting;
 
-namespace BlazorWebassembly.Services;
+namespace ApiServer.Services;
 
-public class AttackLauncher(AttackManagerService attackManagerService, GameController controller) : BackgroundService
+public class AttackLauncher(AttackManagerService attackManagerService, GameController controller,
+    IHostApplicationLifetime lifetime, ILogger<AttackLauncher> logger) : BackgroundService
 {
+    private List<string> Tasks = new List<string>();
     private readonly Random _rng = new Random();
-    private readonly HttpClient _client = new HttpClient();
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // await Task.Delay(1000, stoppingToken);
-        while (true)
+        stoppingToken = controller.StoppingToken;
+        controller.Statistics.State = ServerState.disabled;
+        await Task.Delay(100, stoppingToken);
+        controller.Statistics.State = ServerState.running;
+        logger.LogInformation("Attacker Started");
+
+        while (!stoppingToken.IsCancellationRequested)
         {
             while(controller.Statistics.State != ServerState.running || attackManagerService.Strategy == AttackStrategy.WaitItOut)
             {
-                await Task.Delay(100, stoppingToken);
             }
 
             var availableHosts = attackManagerService.TargetClasification.Where(s =>  s.Key.State == ServerState.running).ToList();
-            var target = availableHosts.FirstOrDefault(s => s.Value == TargetType.Win).Key;
-            if (target is not null)
+            if (attackManagerService.Strategy == AttackStrategy.WinOnly)
             {
-                await LaunchAttack(target);
-                await Task.Delay(200, stoppingToken);
-                continue;
+                var targets = availableHosts.Where(s => (int) s.Value >= (int)TargetType.Win);
+                foreach (var myTarget in targets)
+                {
+                    if (Tasks.Contains(myTarget.Key.IpAddress))
+                        continue;
+                    Tasks.Add(myTarget.Key.IpAddress);
+                    _ = LaunchAttack(myTarget.Key, stoppingToken);
+                }
             }
 
             if (attackManagerService.Strategy == AttackStrategy.WinOrAdvantage)
             {
-                target = availableHosts.FirstOrDefault(s => (int) s.Value >= (int)TargetType.Advantage).Key;
-                if (target is not null)
+                var targets = availableHosts.Where(s => (int) s.Value >= (int)TargetType.Advantage);
+                foreach (var myTarget in targets)
                 {
-                    await LaunchAttack(target);
-                    await Task.Delay(200, stoppingToken);
-                    continue;
+                    if (Tasks.Contains(myTarget.Key.IpAddress))
+                        continue;
+                    Tasks.Add(myTarget.Key.IpAddress);
+                    _ = LaunchAttack(myTarget.Key, stoppingToken);
                 }
             }
 
             if (attackManagerService.Strategy == AttackStrategy.UpToNeutral)
             {
-                target = availableHosts.FirstOrDefault(s => (int) s.Value >= (int)TargetType.Neutral).Key;
-                if (target is not null)
+                var targets = availableHosts.Where(s => (int) s.Value >= (int)TargetType.Neutral);
+                foreach (var myTarget in targets)
                 {
-                    await LaunchAttack(target);
-                    await Task.Delay(200, stoppingToken);
-                    continue;
+                    if (Tasks.Contains(myTarget.Key.IpAddress))
+                        continue;
+                    Tasks.Add(myTarget.Key.IpAddress);
+                    _ = LaunchAttack(myTarget.Key, stoppingToken);
                 }
             }
 
             if (attackManagerService.Strategy == AttackStrategy.AnyButLoss)
             {
-                target = availableHosts.FirstOrDefault(s => (int) s.Value >= (int)TargetType.Disadvantage).Key;
-                if (target is not null)
+                var targets = availableHosts.Where(s => (int) s.Value >= (int)TargetType.Disadvantage);
+                foreach (var myTarget in targets)
                 {
-                    await LaunchAttack(target);
-                    await Task.Delay(200, stoppingToken);
-                    continue;
+                    if (Tasks.Contains(myTarget.Key.IpAddress))
+                        continue;
+                    Tasks.Add(myTarget.Key.IpAddress);
+                    _ = LaunchAttack(myTarget.Key, stoppingToken);
                 }
             }
-
-
-            await Task.Delay(500, stoppingToken);
-
         }
     }
 
-    private async Task LaunchAttack(EnemyClient client)
+    private async Task LaunchAttack(EnemyClient client, CancellationToken stoppingToken)
     {
+        using HttpClient _client = new HttpClient();
         var attackValue = controller.Statistics.Attack * ((_rng.NextDouble() / 5 - 0.1) + 1);
         var request = new HttpRequestMessage(HttpMethod.Post, $"http://{client.IpAddress}:1337/hacking-attempt")
         {
@@ -83,7 +89,7 @@ public class AttackLauncher(AttackManagerService attackManagerService, GameContr
         HttpResponseMessage response;
         try
         {
-             response = await _client.SendAsync(request);
+             response = await _client.SendAsync(request, stoppingToken);
         } catch (HttpRequestException)
         {
             attackManagerService.TargetClasification[client] = TargetType.None;
@@ -91,22 +97,22 @@ public class AttackLauncher(AttackManagerService attackManagerService, GameContr
         }
         if (response.StatusCode == HttpStatusCode.OK)
         {
-            var result = await response.Content.ReadFromJsonAsync<AttackResultModel>();
+            var result = await response.Content.ReadFromJsonAsync<AttackResultModel>(cancellationToken: stoppingToken);
             AttackLog log = new AttackLog()
             {
                 AttackedIp = client.IpAddress,
                 AttackValue = attackValue,
                 Result = result!.HackingResult == "Hacked" ? AttackResult.Hacked : AttackResult.Defended
             };
+            logger.LogInformation($"Attack on {client.IpAddress} was {log.Result.ToString()}");
             attackManagerService.AddAttackLog(log);
         }
         attackManagerService.TargetClasification[client] = TargetType.None;
-
+        Tasks.Remove(client.IpAddress);
     }
 
     public override void Dispose()
     {
-        _client.Dispose();
     }
 
 }

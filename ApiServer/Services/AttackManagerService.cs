@@ -3,7 +3,7 @@ using ApiServer.Controllers;
 using Classes.Enums;
 using Classes.Statistics;
 
-namespace BlazorWebassembly.Services;
+namespace ApiServer.Services;
 
 public class AttackManagerService
 {
@@ -13,9 +13,11 @@ public class AttackManagerService
 
     private GameController _controller { get; set; }
     private CancellationToken _stoppingToken { get; set; }
+    private ILogger<AttackManagerService> _logger;
 
-    public AttackManagerService(GameController controller, IHostApplicationLifetime lifetime)
+    public AttackManagerService(GameController controller, IHostApplicationLifetime lifetime, ILogger<AttackManagerService> logger)
     {
+        _logger = logger;
         _controller = controller;
         _stoppingToken = lifetime.ApplicationStopping;
         AnalyzeEnemies();
@@ -52,8 +54,8 @@ public class AttackManagerService
                 finalTargetType = TargetType.Neutral;
             else if(client.Defense > _controller.Statistics.Attack)
                 finalTargetType = TargetType.Disadvantage;
-
             TargetClasification[client] = finalTargetType;
+            // _logger.LogInformation($"Targets: {TargetClasification.Count}");
         }
     }
 }

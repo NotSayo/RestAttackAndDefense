@@ -25,7 +25,7 @@ public class GameController : IDisposable
     public ConcurrentDictionary<string, EnemyClient> EnemyClients { get; } = new();
     public List<string> IpAddresses { get; set; }
     private readonly Random _rng;
-    private readonly CancellationToken _stoppingToken;
+    public readonly CancellationToken StoppingToken;
     public string DisplayName { get; set; }
 
     public void UpdateStatistics(Action<ServerStatistics> updateAction)
@@ -45,7 +45,7 @@ public class GameController : IDisposable
         IHostApplicationLifetime lifetime, ILogger<GameController> logger, IHubContext<ClientHub> hub)
     {
         _logger = logger;
-        _stoppingToken = lifetime.ApplicationStopping;
+        StoppingToken = lifetime.ApplicationStopping;
         Options = options;
         DisplayName = displayName.Value.DisplayName;
         _clientHub = hub;
@@ -55,7 +55,7 @@ public class GameController : IDisposable
         AttackLogs = new List<AttackLog>();
         IpAddresses = addressList.Value;
 
-        StatisticsChanged += async (sender, e) => { await _clientHub.Clients.All.SendAsync("ReceiveStatistics", e, _stoppingToken); };
+        StatisticsChanged += async (sender, e) => { await _clientHub.Clients.All.SendAsync("ReceiveStatistics", e, StoppingToken); };
 
         Statistics = new ServerStatistics
         {
@@ -65,8 +65,6 @@ public class GameController : IDisposable
             State = ServerState.running
         };
         StatisticsChanged.Invoke(this, Statistics);
-
-
     }
 
     public IResult ReceiveAttack(HttpContext context, [FromHeader(Name="Attacker")] string Name, AttackModel attackModel)
@@ -81,6 +79,10 @@ public class GameController : IDisposable
 
         if (attackModel.Attack > newDefenseValue)
         {
+            // UpdateStatistics(stats =>
+            // {
+            //     stats.State = ServerState.disabled;
+            // });
             _= AddDefenseLog(context, Name, AttackResult.Hacked, attackModel, (float) newDefenseValue);
             return Results.Ok(new AttackResultModel() { HackingResult = AttackResult.Hacked.ToString() });
         }
@@ -102,7 +104,7 @@ public class GameController : IDisposable
             AttackValue = (float)model.Attack,
             DefenseValue = newDefenseValue
         });
-        await _clientHub.Clients.All.SendAsync("ReceiveDefenseLogs", DefenseLogs, _stoppingToken);
+        await _clientHub.Clients.All.SendAsync("ReceiveDefenseLogs", DefenseLogs, StoppingToken);
         DefenseLogAdded?.Invoke(this, DefenseLogs.Last());
     }
 
@@ -110,7 +112,7 @@ public class GameController : IDisposable
     {
         log.AttackId = AttackLogs.Count + 1;
         AttackLogs.Add(log);
-        await _clientHub.Clients.All.SendAsync("ReceiveAttackLogs", AttackLogs, _stoppingToken);
+        await _clientHub.Clients.All.SendAsync("ReceiveAttackLogs", AttackLogs, StoppingToken);
         AttackLogAdded?.Invoke(this, log);
     }
     
