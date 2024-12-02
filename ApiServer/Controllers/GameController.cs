@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 
+
 namespace ApiServer.Controllers;
 
 public class GameController : IDisposable
@@ -26,7 +27,11 @@ public class GameController : IDisposable
     public List<string> IpAddresses { get; set; }
     private readonly Random _rng;
     public readonly CancellationToken StoppingToken;
+    private bool IsAttackDisabled { get; set; } = false;
     public string DisplayName { get; set; }
+
+    // SemaphoreSlim to lock the critical section
+    private readonly SemaphoreSlim _attackLock = new SemaphoreSlim(1, 1);
 
     public void UpdateStatistics(Action<ServerStatistics> updateAction)
     {
@@ -39,7 +44,6 @@ public class GameController : IDisposable
         EnemyClients[client.Key] = client.Value;
         EnemyClientsChanged?.Invoke(this, EnemyClients.Values.ToList());
     }
-
 
     public GameController(IOptions<GameSettings> options, IOptions<List<string>> addressList, IOptions<NameModel> displayName,
         IHostApplicationLifetime lifetime, ILogger<GameController> logger, IHubContext<ClientHub> hub)
@@ -67,33 +71,40 @@ public class GameController : IDisposable
         StatisticsChanged.Invoke(this, Statistics);
     }
 
-    public IResult ReceiveAttack(HttpContext context, [FromHeader(Name="Attacker")] string Name, AttackModel attackModel)
+    // Use SemaphoreSlim to lock the critical section
+    public async Task<IResult> ReceiveAttack(HttpContext context, [FromHeader(Name="Attacker")] string Name, AttackModel attackModel)
     {
-        if(string.IsNullOrEmpty(Name) || string.IsNullOrEmpty(Name))
+        if (string.IsNullOrEmpty(Name) || string.IsNullOrEmpty(Name))
             return Results.BadRequest("Name and attack value must be provided");
         if (Statistics.State != ServerState.running)
-            return Results.StatusCode(statusCode:503);
+            return Results.StatusCode(statusCode: 503);
+
         _logger.LogInformation($"Received attack from {context.Connection.RemoteIpAddress} with attack value {attackModel.Attack}");
 
-        double newDefenseValue = Statistics.Defense * ((_rng.NextDouble() / 5 - 0.1) + 1);
+        // Acquire the semaphore before processing
+        await _attackLock.WaitAsync();
 
-        if (attackModel.Attack > newDefenseValue)
+        try
         {
-            // UpdateStatistics(stats =>
-            // {
-            //     stats.State = ServerState.disabled;
-            // });
-            _= AddDefenseLog(context, Name, AttackResult.Hacked, attackModel, (float) newDefenseValue);
-            return Results.Ok(new AttackResultModel() { HackingResult = AttackResult.Hacked.ToString() });
+            double newDefenseValue = Statistics.Defense * ((_rng.NextDouble() / 5 - 0.1) + 1);
+
+            if (attackModel.Attack > newDefenseValue)
+            {
+                _ = AddDefenseLog(context, Name, AttackResult.Hacked, attackModel, (float)newDefenseValue);
+                return Results.Ok(new AttackResultModel() { HackingResult = AttackResult.Hacked.ToString() });
+            }
+
+            _ = AddDefenseLog(context, Name, AttackResult.Defended, attackModel, (float)newDefenseValue);
+            return Results.Ok(new AttackResultModel() { HackingResult = DefenseLogs.Last().Result.ToString() });
         }
-
-        _= AddDefenseLog(context, Name, AttackResult.Defended, attackModel, (float) newDefenseValue);
-
-        return Results.Ok(new AttackResultModel() {HackingResult = DefenseLogs.Last().Result.ToString()});
+        finally
+        {
+            // Release the semaphore after processing
+            _attackLock.Release();
+        }
     }
 
-    public async Task AddDefenseLog(HttpContext context, string name, AttackResult result, AttackModel model,
-        float newDefenseValue)
+    public async Task AddDefenseLog(HttpContext context, string name, AttackResult result, AttackModel model, float newDefenseValue)
     {
         DefenseLogs.Add(new DefenseLog()
         {
@@ -115,7 +126,6 @@ public class GameController : IDisposable
         await _clientHub.Clients.All.SendAsync("ReceiveAttackLogs", AttackLogs, StoppingToken);
         AttackLogAdded?.Invoke(this, log);
     }
-    
 
     public void Dispose()
     {

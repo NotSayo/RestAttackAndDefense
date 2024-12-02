@@ -1,10 +1,12 @@
 ﻿using ApiServer.Controllers;
+using ApiServer.Services;
+using Classes.Enums;
 using Classes.Statistics;
 using Microsoft.AspNetCore.SignalR;
 
 namespace ApiServer.Hubs;
 
-public class ClientHub(GameController controller) : Hub
+public class ClientHub(GameController controller, AttackManagerService attackManagerService) : Hub
 {
     public async Task GetStatistics()
     {
@@ -19,6 +21,17 @@ public class ClientHub(GameController controller) : Hub
     public async Task GetAttackLogs()
     {
         await Clients.Caller.SendAsync("ReceiveAttackLogs", controller.AttackLogs);
+    }
+
+    public async Task GetStrategy()
+    {
+        await Clients.Caller.SendAsync("ReceiveStrategy", attackManagerService.Strategy);
+    }
+
+    public async Task UpdateAttackStrategy(AttackStrategy strategy)
+    {
+        attackManagerService.Strategy = strategy;
+        await Clients.Caller.SendAsync("ReceiveStrategy", strategy);
     }
 
 

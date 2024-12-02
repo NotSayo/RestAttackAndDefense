@@ -7,7 +7,7 @@ namespace ApiServer.Services;
 
 public class AttackManagerService
 {
-    public AttackStrategy Strategy { get; set; } = AttackStrategy.AnyButLoss;
+    public AttackStrategy Strategy { get; set; } = AttackStrategy.WinOrAdvantage;
 
     public ConcurrentDictionary<EnemyClient, TargetType> TargetClasification { get; set; } = new();
 
@@ -24,12 +24,6 @@ public class AttackManagerService
 
         controller.EnemyClientsChanged += (sender, e) => AnalyzeEnemies();
     }
-
-    public void UpdateStrategy(AttackStrategy strategy)
-    {
-        Strategy = strategy;
-    }
-
 
     public void AddAttackLog(AttackLog log)
     {
@@ -55,7 +49,6 @@ public class AttackManagerService
             else if(client.Defense > _controller.Statistics.Attack)
                 finalTargetType = TargetType.Disadvantage;
             TargetClasification[client] = finalTargetType;
-            // _logger.LogInformation($"Targets: {TargetClasification.Count}");
         }
     }
 }

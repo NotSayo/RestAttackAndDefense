@@ -78,7 +78,7 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
                          controller.UpdateEnemyClient(new(client.IpAddress, client));
                      }
                  }
-                 logger.LogInformation($"Updated {ipAddress}");
+                 // logger.LogInformation($"Updated {ipAddress}");
 
              }
              catch (TaskCanceledException ex)
@@ -95,7 +95,7 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
              }
              catch (HttpRequestException)
              {
-                 logger.LogWarning(new StringBuilder().Append("Could not connect to enemy client.").ToString(), token);
+                 logger.LogWarning(new StringBuilder().Append($"Could not connect to enemy client: {ipAddress}").ToString());
              }
              catch (Exception ex)
              {

@@ -29,6 +29,19 @@
                 <div class="fs-3 justify-content-center">Points: @Statistics.Points</div>
                 <div class="fs-3 justify-content-center">Attack: @Statistics.Attack</div>
                 <div class="fs-3 justify-content-center">Defense: @Statistics.Defense</div>
+                @if (AttackStrategy is not null)
+                {
+                    <div class="fs-4">Current AttackStrategy: @AttackStrategy</div>
+                }
+                <br/>
+                <div class="fs-4">Change Attack Strategy:</div>
+                @foreach(var type in Enum.GetValues<AttackStrategy>())
+                {
+                    <div class="col-12">
+                        <button class="mt-4 col-6" @onclick="async () => await SendAttackStrategy(type)">@type.ToString()</button>
+                    </div>
+                }
+
 
                 @if (Statistics.State == ServerState.disabled && DefenseLogs is not null)
                 {
@@ -59,11 +72,13 @@
 
 
 
+
 @code {
     private ServerStatistics? Statistics { get; set; }
     private HubConnection? _connection { get; set; }
     private List<DefenseLog>? DefenseLogs { get; set; }
     private List<AttackLog>? AttackLogs { get; set; }
+    private AttackStrategy? AttackStrategy { get; set; }
 
 
     protected override async Task OnInitializedAsync()
@@ -89,11 +104,17 @@
 
     }
 
+    private async Task SendAttackStrategy(AttackStrategy strategy)
+    {
+        await _connection!.SendAsync("UpdateAttackStrategy", strategy);
+    }
+
     private async Task ReceiveData()
     {
         await _connection!.InvokeAsync("GetStatistics");
         await _connection!.InvokeAsync("GetAttackLogs");
         await _connection!.InvokeAsync("GetDefenseLogs");
+        await _connection!.InvokeAsync("GetStrategy");
     }
 
     private void MapSignalrEvents()
@@ -112,6 +133,12 @@
         _connection!.On<List<DefenseLog>>("ReceiveDefenseLogs", (logs) =>
         {
             DefenseLogs = logs;
+            InvokeAsync(StateHasChanged);
+        });
+
+        _connection!.On<AttackStrategy>("ReceiveStrategy", (strategy) =>
+        {
+            AttackStrategy = strategy;
             InvokeAsync(StateHasChanged);
         });
     }
