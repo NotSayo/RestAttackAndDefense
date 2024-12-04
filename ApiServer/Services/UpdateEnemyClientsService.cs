@@ -48,8 +48,8 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
 
     private async Task UpdateClient(string ipAddress, CancellationToken token)
     {
+        using HttpClient _client = new HttpClient();
         logger.LogInformation($"Task for {ipAddress} started");
-        HttpClient _client = new HttpClient();
         while (!token.IsCancellationRequested)
         {
              if(controller.Statistics.State == ServerState.stopped)
@@ -58,9 +58,15 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
                  continue;
              }
 
+             var request = new HttpRequestMessage(HttpMethod.Get, $"http://{ipAddress}:1337/status");
+             request.Headers.Add("Attacker", controller.DisplayName);
+
+             HttpResponseMessage? response;
              try
              {
-                 var response = await Client.GetAsync($"http://{ipAddress}:1337/status", token);
+                 response = await _client.SendAsync(request, token);
+                 if (response is null)
+                     continue;
                  if (response.IsSuccessStatusCode)
                  {
                      var enemyStatus = await response.Content.ReadFromJsonAsync<EnemyStatusModel>(token);
@@ -103,11 +109,10 @@ public class UpdateEnemyClientsService(GameController controller, ILogger<Update
                  Crashes++;
                  if (Crashes >= 10)
                  {
-                     logger.LogCritical("Too many crashes. Stopping service.");
-                     break;
+                     logger.LogCritical("Too many crashes.");
                  }
              }
-             await Task.Delay(100, token);
+             await Task.Delay(1000, token);
         }
     }
 }

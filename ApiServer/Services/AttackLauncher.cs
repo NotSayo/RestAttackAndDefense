@@ -107,6 +107,12 @@ public class AttackLauncher(AttackManagerService attackManagerService, GameContr
             logger.LogInformation($"Attack on {client.IpAddress} was {log.Result.ToString()}");
             attackManagerService.AddAttackLog(log);
         }
+        else
+        {
+            logger.LogWarning($"{response.StatusCode.ToString()}");
+        }
+
+        await Task.Delay(1000, stoppingToken);
         attackManagerService.TargetClasification[client] = TargetType.None;
         Tasks.Remove(client.IpAddress);
     }
